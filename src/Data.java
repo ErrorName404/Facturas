@@ -5,7 +5,7 @@ public class Data {
     private String client="";
     private float total=-1.1f;
     private boolean isActive=true;
-    private long dist=0;
+    private long dist=-1;
 
     public Data(boolean exists, int id, String date, String client, float total, boolean isActive, long dist){
         this.exists=exists;
@@ -76,7 +76,7 @@ public class Data {
                     auxDate+=" ";
                 }while (auxDate.length()<10);
                 data.setDate(auxDate);
-                System.out.println(data.getDate());
+                //System.out.println(data.getDate());
             }
         }while(data.getDate().isEmpty()||data.getDate().length()>10);
 
@@ -112,7 +112,7 @@ public class Data {
 
         data.setIsActive(true);
 
-        data.setDist(0);
+        data.setDist(-1);
 
         file.write(data);
     }
