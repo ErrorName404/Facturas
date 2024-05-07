@@ -42,6 +42,7 @@ public class Main {
                     int idToFind = input.readInt("Please, input the value you want to find");
                     File fileName = new File("data.dat");
                     overflow = file.find(fileName, file.getTotalSize(), idToFind);
+                    fileName = new File("bucket.dat");
                     if (overflow != -1) {
                         fileName = new File("bucket.dat");
                         file.findOverflow(fileName, file.getBucketSize(), idToFind);
@@ -50,6 +51,19 @@ public class Main {
                         error.print("No entries active in "+fileName.getName());
                     }
                 }
+                /*case 4 -> {
+                    long overflow;
+                    int idToFind = input.readInt("Please, input the value you want to find");
+                    File fileName = new File("data.dat");
+                    overflow = file.find(fileName, file.getTotalSize(), idToFind);
+                    if (overflow != -1) {
+                        fileName = new File("bucket.dat");
+                        file.findOverflow(fileName, file.getBucketSize(), idToFind);
+                    }
+                    else{
+                        error.print("No entries active in "+fileName.getName());
+                    }
+                }*/
                 case 8->{
                     int opc=0;
                     do {

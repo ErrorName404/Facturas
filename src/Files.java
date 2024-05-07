@@ -112,6 +112,7 @@ class Files {
         File dataName = new File("data.dat");
         File bucketName = new File("bucket.dat");
         int foundID;
+        long foundDest;
         try {
             file= new RandomAccessFile("data.dat","rw");
             bucket= new RandomAccessFile("bucket.dat","rw");
@@ -122,6 +123,8 @@ class Files {
             dataPointer=oneEntryBytes*((data.getID()%(totalNumEntries-1))-1);
             file.seek(dataPointer);
             foundID= file.readInt();
+            file.seek(dataPointer+ oneEntryBytes - destBytes);
+            foundDest= file.readLong();
             file.seek(dataPointer);
             if(foundID==0){
                 file.writeInt(data.getID());
@@ -132,33 +135,58 @@ class Files {
                 file.writeLong(data.getDist());
             }
             else {
-                long pointerPreviusDest=oneEntryBytes - destBytes;
+                //long pointerPreviusDest=oneEntryBytes - destBytes;
                 error.print("Overflow");
-                foundID=0;
-                long pointerBucket=0;
-                boolean dataIsSaved=false;
-                bucket.seek(pointerBucket);
-                foundID = bucket.readInt();
-                bucket.seek(pointerBucket);
-                if (foundID == 0) {
-                    dataPointer = (dataPointer + oneEntryBytes - destBytes);
-                    file.seek(dataPointer);
-                    file.writeLong(pointerBucket);
-                    bucket.writeInt(data.getID());
-                    bucket.writeUTF(data.getDate());
-                    bucket.writeUTF(data.getClient());
-                    bucket.writeFloat(data.getTotal());
-                    bucket.writeBoolean(data.getIsActive());
-                    bucket.writeLong(data.getDist());
-                    dataIsSaved=true;
-                }
-                else {
-                    pointerBucket = pointerBucket + oneEntryBytes;
+                foundID = 0;
+                long pointerBucket = 0;
+
+                //boolean dataIsSaved=false;
+
+                if (foundDest == -1) {
                     while (pointerBucket < bucket.length()) {
                         bucket.seek(pointerBucket);
                         foundID = bucket.readInt();
+                        bucket.seek(pointerBucket);
                         if (foundID == 0) {
-                            bucket.seek(pointerPreviusDest);
+                            file.seek(dataPointer + oneEntryBytes - destBytes);
+                            file.writeLong(pointerBucket);
+                            bucket.writeInt(data.getID());
+                            bucket.writeUTF(data.getDate());
+                            bucket.writeUTF(data.getClient());
+                            bucket.writeFloat(data.getTotal());
+                            bucket.writeBoolean(data.getIsActive());
+                            bucket.writeLong(data.getDist());
+                            pointerBucket = bucketSize;
+                        }
+                        pointerBucket = pointerBucket + oneEntryBytes;
+                    }
+                } else {
+                    long pointerNextWrite=0;
+                    pointerBucket = foundDest;
+                    long previusDest = foundDest;
+                    while (pointerBucket < bucket.length()) {
+                        bucket.seek(pointerBucket);
+                        foundID = bucket.readInt();
+                        bucket.seek(pointerBucket + oneEntryBytes - destBytes);
+                        foundDest = bucket.readLong();
+                        bucket.seek(pointerBucket);
+                        if (foundDest == -1) {
+                            pointerNextWrite = pointerBucket+oneEntryBytes;
+                            previusDest = pointerBucket;
+                            pointerBucket = bucketSize;
+                        } else {
+                            previusDest = pointerBucket;
+                            pointerBucket = foundDest;
+                        }
+                    }
+                    pointerBucket=pointerNextWrite;
+                    boolean dataSaved=false;
+                    while (pointerBucket < bucket.length()) {
+                        bucket.seek(pointerBucket);
+                        foundID = bucket.readInt();
+                        bucket.seek(pointerBucket);
+                        if (foundID == 0) {
+                            bucket.seek(previusDest + oneEntryBytes - destBytes);
                             bucket.writeLong(pointerBucket);
                             bucket.seek(pointerBucket);
                             bucket.writeInt(data.getID());
@@ -167,16 +195,14 @@ class Files {
                             bucket.writeFloat(data.getTotal());
                             bucket.writeBoolean(data.getIsActive());
                             bucket.writeLong(data.getDist());
-                            dataIsSaved=true;
-                            pointerBucket=bucketSize;
-                        } else if (foundID == data.getID()) {
-                            pointerPreviusDest = pointerBucket + oneEntryBytes - destBytes;
+                            pointerBucket = bucketSize;
+                            dataSaved=true;
                         }
                         pointerBucket = pointerBucket + oneEntryBytes;
                     }
-                }
-                if(dataIsSaved=false) {
-                   error.print("Bucket Full");
+                    if (!dataSaved) {
+                        error.print("Bucket Full");
+                    }
                 }
             }
         } catch (IOException e) {
