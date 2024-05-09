@@ -3,7 +3,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 
 class Files {
-    private final int totalNumEntries = 100;
+    private final int totalNumEntries = 50;
     private final int idBytes=4;
     private final int dateBytes=12;
     private final int clientBytes=40;//38 spaces + 2 UTF
@@ -75,10 +75,10 @@ class Files {
         try {
             file= new RandomAccessFile(fileName,"rw");
             System.out.printf("\n| %-10s | %-10s | %-38s | %-11s |%n", "ID", "Date", "Client","Total");
-            System.out.print("----------------------------------------------------------------------------------------------------------\n");
-            long i=0;
+            System.out.print("----------------------------------------------------------------------------------\n");
+            long pointer=0;
             long fileLength=file.length();
-            while (i<fileLength) {
+            while (pointer<fileLength) {
                 idInFile = file.readInt();
                 dateInFile = file.readUTF();
                 clientInFile = file.readUTF();
@@ -86,9 +86,9 @@ class Files {
                 isActiveInFile = file.readBoolean();//change later to false
                 destInFile= file.readLong();
                 System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile,totalInFile);
-                i=i+oneEntryBytes;
+                pointer=pointer+oneEntryBytes;
             }
-            System.out.println("----------------------------------------------------------------------------------------------------------\n");
+            System.out.println("----------------------------------------------------------------------------------\n");
         } catch (Exception e) {
             System.out.println("Error: "+e);
 
@@ -230,7 +230,7 @@ class Files {
         try {
             file= new RandomAccessFile(fileName,"rw");
             System.out.printf("\n| %-10s | %-10s | %-38s | %-11s |%n", "ID", "Date", "Client","Total");
-            System.out.print("----------------------------------------------------------------------------------------------------------\n");
+            System.out.print("----------------------------------------------------------------------------------\n");
             long i=0;
             while (i<file.length()) {
                 idInFile = file.readInt();
@@ -245,7 +245,7 @@ class Files {
                 }
                 i=i+oneEntryBytes;
             }
-            System.out.println("----------------------------------------------------------------------------------------------------------\n");
+            System.out.println("----------------------------------------------------------------------------------\n");
             if(anyEntryActive==false){
                 error.print("No entries active in "+fileName.getName());
             }
@@ -263,10 +263,10 @@ class Files {
     }
 
 
-    public long find(File fileName,int totalEntries, int idToFind) {
+    public boolean find(File fileName,int totalEntries, int idToFind, boolean silenced) {
         Error error= new Error();
         Input input= new Input();
-        boolean anyEntryActive=false;
+        boolean exists=false;
         int idInFile;
         String dateInFile;
         String clientInFile;
@@ -275,11 +275,11 @@ class Files {
         long destInFile=-1;
         RandomAccessFile file=null;
         int pointer=oneEntryBytes*((idToFind%(totalEntries-1))-1);
-        error.print("Main Area");
+        if(!silenced) error.print("Main Area");
         try {
             file= new RandomAccessFile(fileName,"rw");
-            System.out.printf("\n| %-10s | %-10s | %-38s | %-11s |%n", "ID", "Date", "Client","Total");
-            System.out.print("----------------------------------------------------------------------------------------------------------\n");
+            if(!silenced) System.out.printf("\n| %-10s | %-10s | %-38s | %-11s |%n", "ID", "Date", "Client","Total");
+            if(!silenced) System.out.print("----------------------------------------------------------------------------------\n");
             file.seek(pointer);
             idInFile=file.readInt();
             dateInFile = file.readUTF();
@@ -287,13 +287,17 @@ class Files {
             totalInFile = file.readFloat();
             isActiveInFile = file.readBoolean();
             destInFile= file.readLong();
-            if(idToFind==idInFile){
-                System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile,totalInFile);
-                anyEntryActive=true;
+            if(idToFind==idInFile&&isActiveInFile){
+                if(!silenced) System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile,totalInFile);
+                exists=true;
             }
-            System.out.println("----------------------------------------------------------------------------------------------------------\n");
-            if(anyEntryActive==false){
-                error.print("Data not found in "+fileName.getName());
+            else if(idToFind==idInFile&&!isActiveInFile){
+                System.out.println("Entry Deactivated!");
+                exists=true;
+            }
+            if(!silenced) System.out.println("----------------------------------------------------------------------------------\n");
+            if(!exists){
+                if(!silenced)error.print("Data not found in "+fileName.getName());
             }
         } catch (Exception e) {
             System.out.println("Error: "+e);
@@ -306,9 +310,9 @@ class Files {
                 System.out.println("Error: "+b);
             }
         }
-        return destInFile;
+        return exists;
     }
-    public void findOverflow(File fileName,int totalEntries, int idToFind) {
+    public boolean findOverflow(File fileName,int totalEntries, int idToFind, boolean silenced) {
         Error error= new Error();
         Input input= new Input();
         int idInFile;
@@ -318,24 +322,27 @@ class Files {
         boolean isActiveInFile;
         long destInFile;
         RandomAccessFile file=null;
-        boolean anyEntryActive=false;
+        boolean exists=false;
         int pointer=0;
-        error.print("Bucket");
+        if(!silenced)error.print("Bucket");
         try {
             file= new RandomAccessFile(fileName,"rw");
-            System.out.printf("\n| %-10s | %-10s | %-38s | %-11s |%n", "ID", "Date", "Client","Total");
-            System.out.print("----------------------------------------------------------------------------------------------------------\n");
+            if(!silenced)System.out.printf("\n| %-10s | %-10s | %-38s | %-11s |%n", "ID", "Date", "Client","Total");
+            if(!silenced)System.out.print("----------------------------------------------------------------------------------\n");
             do{
                 file.seek(pointer);
                 idInFile=file.readInt();
-                if(idToFind==idInFile){
+                file.seek(pointer+oneEntryBytes-destBytes-isActiveBytes);
+                isActiveInFile=file.readBoolean();
+                file.seek(pointer);
+                if(idToFind==idInFile&&isActiveInFile){
                     dateInFile = file.readUTF();
                     clientInFile = file.readUTF();
                     totalInFile = file.readFloat();
                     isActiveInFile = file.readBoolean();
                     destInFile= file.readLong();
-                    System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile,totalInFile);
-                    anyEntryActive=true;
+                    if(!silenced)System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile,totalInFile);
+                    exists=true;
                     pointer = pointer + oneEntryBytes;
                     while (pointer < file.length()&&destInFile!=-1) {
                         file.seek(pointer);
@@ -346,18 +353,23 @@ class Files {
                             totalInFile = file.readFloat();
                             isActiveInFile = file.readBoolean();
                             destInFile= file.readLong();
-                            System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile,totalInFile);
+                            if(!silenced)System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile,totalInFile);
+                            pointer=fileSize;
                         }
                         pointer = pointer + oneEntryBytes;
                     }
                 }
+                else if(idToFind==idInFile&&!isActiveInFile){
+                    System.out.println("Entry Deactivated!");
+                    exists=true;
+                    pointer=fileSize;
+                }
                 pointer = pointer + oneEntryBytes;
             }while(pointer < file.length());
-            System.out.println("----------------------------------------------------------------------------------------------------------\n");
-            if(anyEntryActive==false){
-                error.print("Data not found in "+fileName.getName());
+            if(!silenced)System.out.println("----------------------------------------------------------------------------------\n");
+            if(!exists){
+                if(!silenced)error.print("Data not found in "+fileName.getName());
             }
-
         } catch (Exception e) {
             System.out.println("Error: "+e);
 
@@ -367,50 +379,360 @@ class Files {
 
             } catch (Exception b) {
                 System.out.println("Error: "+b);
+            }
+        }
+        return exists;
+    }
+
+    public void deactivate(Data data) {
+        Error error = new Error();
+        String menuText = "\nAre you sure you want to deactivate this entry?\n[1]- YES\n[2]- CANCEL\n";
+        Input input = new Input();
+
+        RandomAccessFile file = null;
+        RandomAccessFile bucket = null;
+        long dataPointer = 0;
+        int i = 1;
+        File dataName = new File("data.dat");
+        File bucketName = new File("bucket.dat");
+        int foundID;
+        long foundDest;
+        boolean foundActive;
+        int opc;
+        int IdToFind = data.requestID();
+        try {
+            file = new RandomAccessFile("data.dat", "rw");
+            bucket = new RandomAccessFile("bucket.dat", "rw");
+            if (dataName.exists()) {
+            } else {
+                initialize();
+            }
+            dataPointer = oneEntryBytes * ((IdToFind % (totalNumEntries - 1)) - 1);
+            file.seek(dataPointer);
+            foundID = file.readInt();
+            file.seek(dataPointer+oneEntryBytes- destBytes - isActiveBytes);
+            foundActive = file.readBoolean();
+            file.seek(dataPointer + oneEntryBytes - destBytes);
+            foundDest = file.readLong();
+            file.seek(dataPointer);
+
+            if (foundID == IdToFind && foundActive) {
+                do {
+                    opc = input.readInt(menuText);
+                    switch (opc) {
+                        case 1 -> {
+                            file.seek(dataPointer + oneEntryBytes - destBytes - isActiveBytes);
+                            file.writeBoolean(false);
+                            error.print("ENTRY DEACTIVATED!");
+                        }
+                        case 2 -> {
+                            error.print("DEACTIVATION CANCELED!");
+                        }
+                        default -> error.print("ERROR, NOT AN OPTION!");
+                    }
+                } while (opc < 1||opc>2);
+            } else if (foundID == IdToFind && !foundActive) {
+                error.print("Already deactivated!");
+            } else {
+                //long pointerPreviusDest=oneEntryBytes - destBytes;
+                //error.print("Overflow");
+                foundID = 0;
+                long pointerBucket = 0;
+
+                //boolean dataIsSaved=false;
+
+                if (foundDest == -1) {
+                    error.print("Entry not found");
+                } else {
+                    long pointerNextWrite = 0;
+                    pointerBucket = foundDest;
+                    //long previusDest = foundDest;
+                    while (pointerBucket < bucket.length()) {
+                        bucket.seek(pointerBucket);
+                        foundID = bucket.readInt();
+                        bucket.seek(pointerBucket + oneEntryBytes - destBytes);
+                        foundDest = bucket.readLong();
+                        bucket.seek(pointerBucket);
+                        if (foundID == IdToFind && foundActive) {
+                            opc = input.readInt(menuText);
+                            do {
+                                switch (opc) {
+                                    case 1 -> {
+                                        bucket.seek(pointerBucket + oneEntryBytes - destBytes - isActiveBytes);
+                                        bucket.writeBoolean(false);
+                                        error.print("ENTRY DEACTIVATED!");
+                                        pointerBucket = bucketSize;
+                                    }
+                                    case 2 -> {
+                                        error.print("DEACTIVATION CANCELED!");
+                                    }
+                                    default -> error.print("ERROR, NOT AN OPTION!");
+                                }
+                            } while (opc < 1||opc > 2);
+                            pointerBucket = bucketSize;
+                        } else if (foundID == IdToFind && !foundActive) {
+                            error.print("Already deactivated!");
+                            pointerBucket = bucketSize;
+                        } else {
+                            if (foundDest == -1) {
+                                error.print("Entry not found");
+                                pointerBucket = bucketSize;
+                            } else {
+                                pointerBucket = foundDest;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error: " + e.getMessage());
+        } finally {
+            try {
+                file.close();
+                bucket.close();
+            } catch (Exception e) {
             }
         }
     }
+        public void modify(Data data){
+            Error error = new Error();
+            String menuText = "\nPlease, choose the field you want to modify\n[1]- DATE\n[2]- NAME\n[3]- TOTAL";
+            Input input = new Input();
 
-    public boolean checkEmpty(File fileName){
+            RandomAccessFile file = null;
+            RandomAccessFile bucket = null;
+            long dataPointer = 0;
+            int i = 1;
+            File dataName = new File("data.dat");
+            File bucketName = new File("bucket.dat");
+            int foundID;
+            long foundDest;
+            int opc;
+            int IdToFind = data.requestID();
+            try {
+                file = new RandomAccessFile("data.dat", "rw");
+                bucket = new RandomAccessFile("bucket.dat", "rw");
+                if (dataName.exists()) {
+                } else {
+                    initialize();
+                }
+                dataPointer = oneEntryBytes * ((IdToFind % (totalNumEntries - 1)) - 1);
+                file.seek(dataPointer);
+                foundID = file.readInt();
+                file.seek(dataPointer + oneEntryBytes - destBytes);
+                foundDest = file.readLong();
+                file.seek(dataPointer);
+
+                if (foundID == IdToFind) {
+                    opc = input.readInt(menuText);
+                    do {
+                        switch (opc) {
+                            case 1 -> {
+                                String newDate = data.requestDate();
+                                file.seek(dataPointer + idBytes);
+                                file.writeUTF(newDate);
+                            }
+                            case 2 -> {
+                                String newName = data.requestName();
+                                file.seek(dataPointer + idBytes + dateBytes);
+                                file.writeUTF(newName);
+                            }
+                            case 3 -> {
+                                float newTotal = data.requestTotal();
+                                file.seek(dataPointer + idBytes + dateBytes + clientBytes);
+                                file.writeFloat(newTotal);
+                            }
+                            default -> error.print("ERROR, NOT AN OPTION!");
+                        }
+                    } while (opc < 1 || opc > 3);
+                    error.print("Data updated!");
+                } else {
+                    //long pointerPreviusDest=oneEntryBytes - destBytes;
+                    //error.print("Overflow");
+                    foundID = 0;
+                    long pointerBucket = 0;
+
+                    //boolean dataIsSaved=false;
+
+                    if (foundDest == -1) {
+                        error.print("Entry not found");
+                    } else {
+                        long pointerNextWrite = 0;
+                        pointerBucket = foundDest;
+                        //long previusDest = foundDest;
+                        while (pointerBucket < bucket.length()) {
+                            bucket.seek(pointerBucket);
+                            foundID = bucket.readInt();
+                            bucket.seek(pointerBucket + oneEntryBytes - destBytes);
+                            foundDest = bucket.readLong();
+                            bucket.seek(pointerBucket);
+                            if (foundID == IdToFind) {
+                                opc = input.readInt(menuText);
+                                do {
+                                    switch (opc) {
+                                        case 1 -> {
+                                            String newName = data.requestName();
+                                            file.seek(dataPointer + idBytes);
+                                            file.writeUTF(newName);
+                                        }
+                                        case 2 -> {
+                                            String newDate = data.requestDate();
+                                            file.seek(dataPointer + idBytes + clientBytes);
+                                            file.writeUTF(newDate);
+                                        }
+                                        case 3 -> {
+                                            float newTotal = data.requestTotal();
+                                            file.seek(dataPointer + idBytes + clientBytes + dateBytes);
+                                            file.writeFloat(newTotal);
+                                        }
+                                        default -> error.print("ERROR, NOT AN OPTION!");
+                                    }
+                                } while (opc < 1 || opc > 3);
+                                error.print("Data updated!");
+                                pointerBucket = bucketSize;
+                            } else {
+                                if (foundDest == -1) {
+                                    error.print("Entry not found");
+                                    pointerBucket = bucketSize;
+                                } else {
+                                    pointerBucket = foundDest;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                System.out.println("Error: " + e.getMessage());
+            } finally {
+                try {
+                    file.close();
+                    bucket.close();
+                } catch (Exception e) {
+                }
+            }
+
+    }
+    public void delete(Data data){
+        RandomAccessFile historical=null;
+        RandomAccessFile file=null;
+        RandomAccessFile bucket=null;
+
+        Error error= new Error();
         int idInFile;
-        String nameInFile;
-        int grade1InFile;
-        int grade2InFile;
-        int grade3InFile;
-        int grade4InFile;
-        float finalGradeInFile;
+        String dateInFile;
+        String clientInFile;
+        float totalInFile;
         boolean isActiveInFile;
         long destInFile;
-        RandomAccessFile file=null;
+
+        int emptyID = 0;
+        String emptyDate = "          ";//10 characters
+        String emptyClient = "                                      ";//38 characters
+        float emptyTotal = 0.0f;
+        boolean emptyIsActive = false;
+        long emptyDest = -1;
+        boolean anyEntryDeactivated=false;
+        long historicalPointer;
         try {
-            file= new RandomAccessFile(fileName,"r");
-            long i=oneEntryBytes;
-            while (i<fileSize) {
+            historical= new RandomAccessFile("historical.dat","rw");
+            file= new RandomAccessFile("data.dat","rw");
+            bucket = new RandomAccessFile("bucket.dat","rw");
+            long pointer=0;
+            error.print("Data.dat");
+            System.out.printf("\n| %-10s | %-10s | %-38s | %-11s |%n", "ID", "Date", "Client","Total");
+            System.out.print("----------------------------------------------------------------------------------\n");
+            while (pointer<file.length()) {
+                file.seek(pointer);
                 idInFile = file.readInt();
-                nameInFile = file.readUTF();
-                grade1InFile = file.readInt();
-                grade2InFile = file.readInt();
-                grade3InFile = file.readInt();
-                grade4InFile = file.readInt();
-                finalGradeInFile = file.readFloat();
-                isActiveInFile = file.readBoolean();//change later to false
+                dateInFile = file.readUTF();
+                clientInFile = file.readUTF();
+                totalInFile = file.readFloat();
+                isActiveInFile = file.readBoolean();
                 destInFile= file.readLong();
-                if (idInFile!=0) {
-                    return true;
+
+                if(!isActiveInFile&&idInFile!=0) {
+
+                    historicalPointer = historical.length();
+                    historical.seek(historicalPointer);
+                    historical.writeInt(idInFile);
+                    historical.writeUTF(dateInFile);
+                    historical.writeUTF(clientInFile);
+                    historical.writeFloat(totalInFile);
+                    historical.writeBoolean(isActiveInFile);
+                    historical.writeLong(destInFile);
+
+                    System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile, totalInFile);
+
+                    file.seek(pointer);
+                    file.writeInt(emptyID);
+                    file.writeUTF(emptyDate);
+                    file.writeUTF(emptyClient);
+                    file.writeFloat(emptyTotal);
+                    file.writeBoolean(emptyIsActive);
+                    file.writeLong(emptyDest);
+                    anyEntryDeactivated = true;
                 }
-                i=i+oneEntryBytes;
+                pointer = pointer + oneEntryBytes;
             }
+            System.out.println("----------------------------------------------------------------------------------\n");
+            if(!anyEntryDeactivated){
+                error.print("No inactive entries in data.dat");
+            }
+            error.print("Bucket.dat");
+            pointer=0;
+            anyEntryDeactivated=false;
+            System.out.printf("\n| %-10s | %-10s | %-38s | %-11s |%n", "ID", "Date", "Client","Total");
+            System.out.print("----------------------------------------------------------------------------------\n");
+            while (pointer<bucket.length()) {
+                bucket.seek(pointer);
+                idInFile = bucket.readInt();
+                dateInFile = bucket.readUTF();
+                clientInFile = bucket.readUTF();
+                totalInFile = bucket.readFloat();
+                isActiveInFile = bucket.readBoolean();
+                destInFile= bucket.readLong();
+
+                if(!isActiveInFile&&idInFile!=0) {
+
+                    historicalPointer = historical.length();
+                    historical.seek(historicalPointer);
+                    historical.writeInt(idInFile);
+                    historical.writeUTF(dateInFile);
+                    historical.writeUTF(clientInFile);
+                    historical.writeFloat(totalInFile);
+                    historical.writeBoolean(isActiveInFile);
+                    historical.writeLong(destInFile);
+
+                    System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile, totalInFile);
+
+                    bucket.seek(pointer);
+                    bucket.writeInt(emptyID);
+                    bucket.writeUTF(emptyDate);
+                    bucket.writeUTF(emptyClient);
+                    bucket.writeFloat(emptyTotal);
+                    bucket.writeBoolean(emptyIsActive);
+                    bucket.writeLong(emptyDest);
+                    anyEntryDeactivated = true;
+                }
+                pointer = pointer + oneEntryBytes;
+            }
+            System.out.println("----------------------------------------------------------------------------------\n");
+            if(!anyEntryDeactivated){
+                error.print("No inactive entries in bucket.dat");
+            }
+            else error.print("Entries deleted");
         } catch (Exception e) {
             System.out.println("Error: "+e);
 
         } finally {
             try {
                 file.close();
+                bucket.close();
+                historical.close();
             } catch (Exception b) {
                 System.out.println("Error: "+b);
             }
         }
-        return false;
     }
     public int getTotalSize(){ return totalNumEntries; }
     public int getBucketSize(){ return numEntriesBucket; }

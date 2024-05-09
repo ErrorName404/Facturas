@@ -6,16 +6,18 @@ public class Main {
         Data data=new Data(false,0,"","",0.0f,true,-1);
         Input input = new Input();
         Error error = new Error();
+        String menuTextDelete = "\nAre you sure you want to delete the deactivated entries?\n[1]- YES\n[2]- CANCEL\n";
 
         int mainMenuOption;
-        String menuText= "Please, choose an option\n[1]- ADD\n[2]- PRINT ACTIVE ENTRIES\n[3]- SEARCH\n[8]- DELETE ALL\n[9]- EXIT";
+        String menuText= "\nPlease, choose an option\n[1]- ADD\n[2]- PRINT ACTIVE ENTRIES\n[3]- SEARCH\n[4]- MODIFICATION\n[5]- DEACTIVATE\n[6]- DELETE DEACTIVATED\n[8]- CLEAN ALL\n[9]- PRINT HISTORICAL\n[10]- EXIT";
 
         do {
             data=new Data(false,0,"","",0.0f,true,0);
             mainMenuOption = input.readInt(menuText);
             switch (mainMenuOption) {
                 case 1 ->{
-                    data.request();
+                    data=data.request();
+                    file.write(data);
                 }
                 case 2 -> {
                     File fileName=new File("data.dat");
@@ -38,32 +40,41 @@ public class Main {
 
                 }
                 case 3 -> {
-                    long overflow;
+                    boolean overflow;
                     int idToFind = input.readInt("Please, input the value you want to find");
                     File fileName = new File("data.dat");
-                    overflow = file.find(fileName, file.getTotalSize(), idToFind);
+                    overflow = file.find(fileName, file.getTotalSize(), idToFind,false);
                     fileName = new File("bucket.dat");
-                    if (overflow != -1) {
+                    if (overflow) {
                         fileName = new File("bucket.dat");
-                        file.findOverflow(fileName, file.getBucketSize(), idToFind);
+                        file.findOverflow(fileName, file.getBucketSize(), idToFind, false);
                     }
                     else{
                         error.print("No entries active in "+fileName.getName());
                     }
                 }
-                /*case 4 -> {
-                    long overflow;
-                    int idToFind = input.readInt("Please, input the value you want to find");
-                    File fileName = new File("data.dat");
-                    overflow = file.find(fileName, file.getTotalSize(), idToFind);
-                    if (overflow != -1) {
-                        fileName = new File("bucket.dat");
-                        file.findOverflow(fileName, file.getBucketSize(), idToFind);
-                    }
-                    else{
-                        error.print("No entries active in "+fileName.getName());
-                    }
-                }*/
+                case 4 -> {
+                    file.modify(data);
+                }
+                case 5 -> {
+                    file.deactivate(data);
+                }
+                case 6 -> {
+                    int opcMenu=0;
+                    do {
+                        opcMenu = input.readInt(menuTextDelete);
+                        switch (opcMenu) {
+                            case 1 -> {
+                                file.delete(data);
+                            }
+                            case 2 -> {
+                                error.print("CANCELED!");
+                            }
+                            default -> error.print("ERROR, NOT AN OPTION!");
+                        }
+                    } while (opcMenu < 1||opcMenu>2);
+
+                }
                 case 8->{
                     int opc=0;
                     do {
@@ -86,11 +97,16 @@ public class Main {
                         }
                     }while (opc<1||opc>2);
                 }
-                case 9->{}
+                case 9->{
+                    File fileName=new File("historical.dat");
+                    file.printAll(fileName);
+                }
+
+                case 10->{}
 
                 default -> error.print("ERROR, NOT AN OPTION!");
             }
-        } while (mainMenuOption != 9);
+        } while (mainMenuOption != 10);
         input.close();
     }
 }
