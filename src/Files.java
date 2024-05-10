@@ -399,6 +399,8 @@ class Files {
         long foundDest;
         boolean foundActive;
         int opc;
+        long auxPointer=-1;
+        boolean firstElementBucket=false;
         int IdToFind = data.requestID();
         try {
             file = new RandomAccessFile("data.dat", "rw");
@@ -415,7 +417,9 @@ class Files {
             file.seek(dataPointer + oneEntryBytes - destBytes);
             foundDest = file.readLong();
             file.seek(dataPointer);
-
+            if((foundID!=0)&&(foundDest!=-1)){
+                firstElementBucket=true;
+            }
             if (foundID == IdToFind && foundActive) {
                 do {
                     opc = input.readInt(menuText);
@@ -424,6 +428,7 @@ class Files {
                             file.seek(dataPointer + oneEntryBytes - destBytes - isActiveBytes);
                             file.writeBoolean(false);
                             error.print("ENTRY DEACTIVATED!");
+
                         }
                         case 2 -> {
                             error.print("DEACTIVATION CANCELED!");
@@ -433,7 +438,8 @@ class Files {
                 } while (opc < 1||opc>2);
             } else if (foundID == IdToFind && !foundActive) {
                 error.print("Already deactivated!");
-            } else {
+            }
+            else {
                 //long pointerPreviusDest=oneEntryBytes - destBytes;
                 //error.print("Overflow");
                 foundID = 0;
@@ -444,7 +450,7 @@ class Files {
                 if (foundDest == -1) {
                     error.print("Entry not found");
                 } else {
-                    long pointerNextWrite = 0;
+                    long auxBucketPointer = 0;
                     pointerBucket = foundDest;
                     //long previusDest = foundDest;
                     while (pointerBucket < bucket.length()) {
@@ -453,14 +459,25 @@ class Files {
                         bucket.seek(pointerBucket + oneEntryBytes - destBytes);
                         foundDest = bucket.readLong();
                         bucket.seek(pointerBucket);
+                        auxBucketPointer=pointerBucket;
                         if (foundID == IdToFind && foundActive) {
                             opc = input.readInt(menuText);
                             do {
                                 switch (opc) {
                                     case 1 -> {
+                                        if(firstElementBucket){
+                                            file.seek(dataPointer+oneEntryBytes-destBytes);
+                                            file.writeLong(foundDest);
+                                        }
+                                        else{
+                                            bucket.seek(auxBucketPointer+oneEntryBytes-destBytes);
+                                            bucket.writeLong(foundDest);
+                                        }
+
                                         bucket.seek(pointerBucket + oneEntryBytes - destBytes - isActiveBytes);
                                         bucket.writeBoolean(false);
                                         error.print("ENTRY DEACTIVATED!");
+
                                         pointerBucket = bucketSize;
                                     }
                                     case 2 -> {
@@ -468,12 +485,14 @@ class Files {
                                     }
                                     default -> error.print("ERROR, NOT AN OPTION!");
                                 }
+                                firstElementBucket=false;
                             } while (opc < 1||opc > 2);
                             pointerBucket = bucketSize;
                         } else if (foundID == IdToFind && !foundActive) {
                             error.print("Already deactivated!");
                             pointerBucket = bucketSize;
-                        } else {
+                        }
+                        else {
                             if (foundDest == -1) {
                                 error.print("Entry not found");
                                 pointerBucket = bucketSize;
@@ -481,6 +500,10 @@ class Files {
                                 pointerBucket = foundDest;
                             }
                         }
+                        if(foundID!=IdToFind&&foundActive){
+                            auxPointer=pointerBucket;
+                        }
+
                     }
                 }
             }
@@ -638,6 +661,7 @@ class Files {
             file= new RandomAccessFile("data.dat","rw");
             bucket = new RandomAccessFile("bucket.dat","rw");
             long pointer=0;
+            long auxpointer=0;
             error.print("Data.dat");
             System.out.printf("\n| %-10s | %-10s | %-38s | %-11s |%n", "ID", "Date", "Client","Total");
             System.out.print("----------------------------------------------------------------------------------\n");
@@ -663,13 +687,40 @@ class Files {
 
                     System.out.printf("| %-10s | %-10s | %-38s | %-11.2f |%n", idInFile, dateInFile, clientInFile, totalInFile);
 
-                    file.seek(pointer);
-                    file.writeInt(emptyID);
-                    file.writeUTF(emptyDate);
-                    file.writeUTF(emptyClient);
-                    file.writeFloat(emptyTotal);
-                    file.writeBoolean(emptyIsActive);
-                    file.writeLong(emptyDest);
+                    if(destInFile!=-1){
+                        long auxDest=destInFile;
+                        bucket.seek(destInFile);
+                        idInFile = bucket.readInt();
+                        dateInFile = bucket.readUTF();
+                        clientInFile = bucket.readUTF();
+                        totalInFile = bucket.readFloat();
+                        isActiveInFile = bucket.readBoolean();
+                        destInFile= bucket.readLong();
+
+                        bucket.seek(auxDest);
+                        bucket.writeInt(emptyID);
+                        bucket.writeUTF(emptyDate);
+                        bucket.writeUTF(emptyClient);
+                        bucket.writeFloat(emptyTotal);
+                        bucket.writeBoolean(emptyIsActive);
+                        bucket.writeLong(emptyDest);
+
+                        file.seek(pointer);
+                        file.writeInt(idInFile);
+                        file.writeUTF(dateInFile);
+                        file.writeUTF(clientInFile);
+                        file.writeFloat(totalInFile);
+                        file.writeBoolean(isActiveInFile);
+                        file.writeLong(destInFile);
+                    }else{
+                        file.seek(pointer);
+                        file.writeInt(emptyID);
+                        file.writeUTF(emptyDate);
+                        file.writeUTF(emptyClient);
+                        file.writeFloat(emptyTotal);
+                        file.writeBoolean(emptyIsActive);
+                        file.writeLong(emptyDest);
+                    }
                     anyEntryDeactivated = true;
                 }
                 pointer = pointer + oneEntryBytes;
@@ -737,4 +788,42 @@ class Files {
     public int getTotalSize(){ return totalNumEntries; }
     public int getBucketSize(){ return numEntriesBucket; }
 
+    public void printAllData(File fileName) {
+        Error error= new Error();
+        int idInFile;
+        String dateInFile;
+        String clientInFile;
+        float totalInFile;
+        boolean isActiveInFile;
+        long destInFile;
+        RandomAccessFile file=null;
+        try {
+            file= new RandomAccessFile(fileName,"rw");
+            System.out.printf("\n| %-10s | %-10s | %-38s | %-11s | %-11s |%n", "ID", "Date", "Client","Total","destInFile");
+            System.out.print("----------------------------------------------------------------------------------\n");
+            long pointer=0;
+            long fileLength=file.length();
+            while (pointer<fileLength) {
+                idInFile = file.readInt();
+                dateInFile = file.readUTF();
+                clientInFile = file.readUTF();
+                totalInFile = file.readFloat();
+                isActiveInFile = file.readBoolean();//change later to false
+                destInFile= file.readLong();
+                System.out.printf("| %-10s | %-10s | %-38s | %-11.2f | %-11s |%n", idInFile, dateInFile, clientInFile,totalInFile,destInFile);
+                pointer=pointer+oneEntryBytes;
+            }
+            System.out.println("----------------------------------------------------------------------------------\n");
+        } catch (Exception e) {
+            System.out.println("Error: "+e);
+
+        } finally {
+            try {
+                file.close();
+
+            } catch (Exception b) {
+                System.out.println("Error: "+b);
+            }
+        }
+    }
 }

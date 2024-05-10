@@ -104,6 +104,13 @@ public class Main {
 
                 case 10->{}
 
+                case 11->{
+                    File fileName=new File("data.dat");
+                    file.printAllData(fileName);
+                    fileName=new File("bucket.dat");
+                    file.printAllData(fileName);
+                }
+
                 default -> error.print("ERROR, NOT AN OPTION!");
             }
         } while (mainMenuOption != 10);
